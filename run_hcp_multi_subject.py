@@ -108,6 +108,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
     """
     t0 = time.time()
 
+
     hcp_subject = HcpSubject(
         hcp_sub_nifti_location,
         session_name=session_name,

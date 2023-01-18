@@ -1,0 +1,7 @@
+,series_description_str,modality,type,attribute_name
+0,t1w,t1w,anat,t1w
+1,t2w,t2w,anat,t2w
+2,calibration,localizer,ignore,localizer
+3,plane_loc,localizer,ignore,localizer
+4,dmri_b0,b0,dwi,diff_dwi_blip
+5,dmri_dir,dwi,dwi,diff_raw_dwi

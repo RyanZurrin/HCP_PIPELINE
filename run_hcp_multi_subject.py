@@ -7,19 +7,34 @@ from multiprocessing import Pool
 
 # +++++++++++++++++++++++++   DEFAULT PATH VARIABLES   +++++++++++++++++++++++++
 PIPELINE_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/objPipe'
-MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data2/multi'
+MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/test'
 CONFIG_LOC = '/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/test_config.ini'
-BIDS_STUDY_ROOT = '/rfanfs/pnl-zorro/projects/ampscz_mri/data2/test_bids'
+BIDS_STUDY_ROOT = '/rfanfs/pnl-zorro/projects/ampscz_mri/data/test_bids'
+NIFTI_PATH_FROM_SUBJECT_ROOT = 'unprocessed/Diffusion'
 CUDA_DEVICE_COUNT = len(os.popen('nvidia-smi -L').readlines())
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 # ++++++++++ OVERWRITE THE DEFAULT PATH VARIABLES IF PASSED AS ARGUMENTS +++++++
 parser = argparse.ArgumentParser()
-parser.add_argument('-p', '--pipeline_root', help='the location of the pipeline root', default=PIPELINE_ROOT)
-parser.add_argument('-m', '--multi_subject_root', help='the location of the multi subject root', default=MULTI_SUBJECT_ROOT)
-parser.add_argument('-c', '--config_location', help='the location of the config file', default=CONFIG_LOC)
-parser.add_argument('-b', '--bids_study_root', help='the location of the bids study root', default=BIDS_STUDY_ROOT)
-parser.add_argument('-d', '--cuda_devices', help='the number of cuda devices', default=CUDA_DEVICE_COUNT)
+parser.add_argument('-p', '--pipeline_root',
+                    help='the location of the pipeline root',
+                    default=PIPELINE_ROOT)
+parser.add_argument('-m', '--multi_subject_root',
+                    help='the location of the multi subject root',
+                    default=MULTI_SUBJECT_ROOT)
+parser.add_argument('-c', '--config_location',
+                    help='the location of the config file',
+                    default=CONFIG_LOC)
+parser.add_argument('-b', '--bids_study_root',
+                    help='the location of the bids study root',
+                    default=BIDS_STUDY_ROOT)
+parser.add_argument('-n', '--nifti_path_from_subject_root',
+                    help='the path from the subject root to the nifti file',
+                    default=NIFTI_PATH_FROM_SUBJECT_ROOT)
+parser.add_argument('-d', '--cuda_devices',
+                    help='the number of cuda devices',
+                    default=CUDA_DEVICE_COUNT)
 args = parser.parse_args()
 PIPELINE_ROOT = args.pipeline_root
 MULTI_SUBJECT_ROOT = args.multi_subject_root
@@ -63,9 +78,10 @@ def extract_subject_data():
     print("testing extract_nifti_file_location")
     multi_subject_root = Path(MULTI_SUBJECT_ROOT)
     hcp_sub_nifti_location_list = []
+
     for sub in multi_subject_root.glob('*'):
         if sub.is_dir():
-            hcp_sub_nifti_location_list.append(sub / 'unprocessed' / 'Diffusion')
+            hcp_sub_nifti_location_list.append(sub / NIFTI_PATH_FROM_SUBJECT_ROOT)
 
     # extract the subject name and session name from the hcp_sub_nifti_location
     subject_name_list = []
@@ -74,7 +90,15 @@ def extract_subject_data():
         subject_name_list.append(hcp_sub_nifti_location.parts[-3].split('_')[0])
         session_name_list.append(
             re.findall(r'\d+', str(hcp_sub_nifti_location.parts[-3].split('_')[0]))[0])
+
+    print('{:^130}'.format('Running HCP Pipeline on the following subjects'))
+    print_df(pd.DataFrame({'subject_name': subject_name_list,
+                           'session_name': session_name_list,
+                           'nifti_location': hcp_sub_nifti_location_list}))
+
     return hcp_sub_nifti_location_list, subject_name_list, session_name_list
+
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -163,10 +187,10 @@ def run_hcp_multi_subject():
     # extract the nifti file location for each subject
     hcp_sub_nifti_location_list, subject_name_list, session_name_list = extract_subject_data()
 
-    with Pool(processes=len(subject_name_list)) as pool:
-        pool.starmap(run_hcp_subject,
-                     zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
-                         repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
+    # with Pool(processes=len(subject_name_list)) as pool:
+    #     pool.starmap(run_hcp_subject,
+    #                  zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
+    #                      repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
 
     # calculate end time
     t1 = time.time()

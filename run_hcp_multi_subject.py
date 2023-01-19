@@ -7,7 +7,7 @@ from multiprocessing import Pool
 
 # +++++++++++++++++++++++++   DEFAULT PATH VARIABLES   +++++++++++++++++++++++++
 PIPELINE_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/objPipe'
-MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/test'
+MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/multi'
 CONFIG_LOC = '/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/test_config.ini'
 BIDS_STUDY_ROOT = '/rfanfs/pnl-zorro/projects/ampscz_mri/data/test_bids'
 NIFTI_PATH_FROM_SUBJECT_ROOT = 'unprocessed/Diffusion'
@@ -187,10 +187,16 @@ def run_hcp_multi_subject():
     # extract the nifti file location for each subject
     hcp_sub_nifti_location_list, subject_name_list, session_name_list = extract_subject_data()
 
-    # with Pool(processes=len(subject_name_list)) as pool:
-    #     pool.starmap(run_hcp_subject,
-    #                  zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
-    #                      repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
+    # check that the number of subjects is equal to the number of sessions and nifti locations
+    assert len(hcp_sub_nifti_location_list) == len(subject_name_list) == len(session_name_list)
+
+    with Pool() as pool:
+        pool.starmap(run_hcp_subject,
+                     zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
+                         repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
+
+    # close the pool and wait for the work to finish
+    pool.close()
 
     # calculate end time
     t1 = time.time()

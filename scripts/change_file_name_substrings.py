@@ -1,10 +1,18 @@
 import argparse
 from pathlib import Path
 
+# Get the users current file path
+FILE_PATH = Path.cwd()
+
 parser = argparse.ArgumentParser()
-parser.add_argument('initial', help='the initial substring to be replaced')
-parser.add_argument('final', help='the final substring to replace the initial substring')
-parser.add_argument('file_path', help='the file path of the files to be changed')
+parser.add_argument('initial',
+                    help='the initial substring to be replaced')
+parser.add_argument('final',
+                    help='the final substring to replace the initial substring')
+# add optional filepath argument
+parser.add_argument('-f', '--file_path',
+                    help='the path to the file to be changed',
+                    default=FILE_PATH)
 args = parser.parse_args()
 
 

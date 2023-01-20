@@ -5,66 +5,119 @@ import argparse
 from itertools import repeat
 from multiprocessing import Pool
 
-# +++++++++++++++++++++++++   DEFAULT PATH VARIABLES   +++++++++++++++++++++++++
+# +++++++++++++++++++++   DEFAULT PATH/SCRIPT VARIABLES   ++++++++++++++++++++++
+TIME_DATE = time.strftime("%Y%m%d_%H%M%S")
 PIPELINE_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/objPipe'
 MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/multi'
 CONFIG_LOC = '/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/test_config.ini'
 BIDS_STUDY_ROOT = '/rfanfs/pnl-zorro/projects/ampscz_mri/data/test_bids'
 NIFTI_PATH_FROM_SUBJECT_ROOT = 'unprocessed/Diffusion'
 CUDA_DEVICE_COUNT = len(os.popen('nvidia-smi -L').readlines())
+PROCESSES = CUDA_DEVICE_COUNT
+MAX_TASK_PER_CHILD = 1
+OUTPUT_FILE_LOCATION = os.path.join(MULTI_SUBJECT_ROOT, 'output')
+OUTPUT_FILE_NAME = 'run_hcp_multi_subject_' + TIME_DATE + '.out'
+OUTPUT_ERROR_NAME = 'run_hcp_multi_subject_' + TIME_DATE + '.err'
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-# ++++++++++ OVERWRITE THE DEFAULT PATH VARIABLES IF PASSED AS ARGUMENTS +++++++
+# +++++++++++ OVERWRITE THE DEFAULT VARIABLES IF PASSED AS ARGUMENTS +++++++++++
 parser = argparse.ArgumentParser()
-parser.add_argument('-p', '--pipeline_root',
-                    help='the location of the pipeline root',
+parser.add_argument('-pr', '--pipeline_root',
+                    help='The location of the pipeline root',
                     default=PIPELINE_ROOT)
-parser.add_argument('-m', '--multi_subject_root',
-                    help='the location of the multi subject root',
+parser.add_argument('-mr', '--multi_subject_root',
+                    help='The location of the multi subject root',
                     default=MULTI_SUBJECT_ROOT)
-parser.add_argument('-c', '--config_location',
-                    help='the location of the config file',
+parser.add_argument('-cl', '--config_location',
+                    help='The location of the config file',
                     default=CONFIG_LOC)
-parser.add_argument('-b', '--bids_study_root',
-                    help='the location of the bids study root',
+parser.add_argument('-br', '--bids_study_root',
+                    help='The location of the bids study root',
                     default=BIDS_STUDY_ROOT)
-parser.add_argument('-n', '--nifti_path_from_subject_root',
-                    help='the path from the subject root to the nifti file',
+parser.add_argument('-nr', '--nifti_path_from_subject_root',
+                    help='The path from the subject root to the nifti file',
                     default=NIFTI_PATH_FROM_SUBJECT_ROOT)
-parser.add_argument('-d', '--cuda_devices',
-                    help='the number of cuda devices',
+parser.add_argument('-cd', '--cuda_devices',
+                    help='The number of cuda devices. '
+                         'Default is the number of cuda devices on the system.'
+                         ' Only set if you want to not use all GPUs on the system',
                     default=CUDA_DEVICE_COUNT)
+parser.add_argument('-p', '--processes',
+                    help='The number of processes to run in parallel. '
+                         'Default is the number of cuda devices on the system. '
+                         'This maximum should be set based on the total available '
+                         'memory divided by the total memory used by a process. ',
+                    default=PROCESSES)
+parser.add_argument('-t', '--max_tasks_per_child',
+                    help='The number of tasks per child, default is 1. '
+                         'Keep low to avoid memory issues',
+                    default=MAX_TASK_PER_CHILD)
+parser.add_argument('-o', '--output_file_location',
+                    help='The location of the output file',
+                    default=OUTPUT_FILE_LOCATION)
+parser.add_argument('-f', '--output_file_name',
+                    help='The name of the output file',
+                    default=OUTPUT_FILE_NAME)
+parser.add_argument('-e', '--output_error_name',
+                    help='The name of the error file',
+                    default=OUTPUT_ERROR_NAME)
+parser.add_argument('-r', '--redirect_output',
+                    help='Flag to redirect the output to a file',
+                    default=False,
+                    action='store_true')
 args = parser.parse_args()
 PIPELINE_ROOT = args.pipeline_root
 MULTI_SUBJECT_ROOT = args.multi_subject_root
 CONFIG_LOC = args.config_location
 BIDS_STUDY_ROOT = args.bids_study_root
 CUDA_DEVICE_COUNT = int(args.cuda_devices)
-# print all the variables
+PROCESSES = int(args.processes)
+MAX_TASK_PER_CHILD = int(args.max_tasks_per_child)
+OUTPUT_FILE_LOCATION = args.output_file_location
+OUTPUT_FILE_NAME = args.output_file_name
+OUTPUT_ERROR_NAME = args.output_error_name
+REDIRECT_OUTPUT = args.redirect_output
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++++++++++++++++++++++   print the variables    +++++++++++++++++++++++++++++
 print('PIPELINE_ROOT: ', PIPELINE_ROOT)
 print('MULTI_SUBJECT_ROOT: ', MULTI_SUBJECT_ROOT)
 print('CONFIG_LOC: ', CONFIG_LOC)
 print('BIDS_STUDY_ROOT: ', BIDS_STUDY_ROOT)
 print('CUDA_DEVICE_COUNT: ', CUDA_DEVICE_COUNT)
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+print('REDIRECT_OUTPUT: ', REDIRECT_OUTPUT)
 
-# Removing any old pipeline environment variables that may have been set prior
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++++++++++++++++++ Redirecting the output if set to +++++++++++++++++++++++++
+if REDIRECT_OUTPUT:
+    print("redirecting output to files located at ", OUTPUT_FILE_LOCATION)
+    if not os.path.exists(OUTPUT_FILE_LOCATION):
+        os.makedirs(OUTPUT_FILE_LOCATION)
+    sys.stdout = open(os.path.join(OUTPUT_FILE_LOCATION, OUTPUT_FILE_NAME), 'w')
+    sys.stderr = open(os.path.join(OUTPUT_FILE_LOCATION, OUTPUT_ERROR_NAME), 'w')
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++++++++++ Removing any old pipeline environment variables ++++++++++++++++++
 for i, item in enumerate(sys.path):
     if 'objPipe' in item:
         print('remove', item)
         sys.path.pop(i)
 sys.path.append(PIPELINE_ROOT)
-
-# import the objPipe module and HcpSubject class
+# import the objPipe module and HcpSubject class to now use in pipeline
 import objPipe
 from objPipe.subject import HcpSubject
 from objPipe.utils.utils import re, pd, Path, print_df, shutil
 
 
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # +++++++++++++++++++++++++   UTILITY FUNCTIONS   ++++++++++++++++++++++++++++++
 def extract_subject_data():
-    """ extract the subject data from the bids study root
+    """ extracts the subject data from the multi subject root directory for use
+    in the HcpSubject class instances
 
     Returns
     -------
@@ -75,26 +128,29 @@ def extract_subject_data():
     session names : list
         the list of session names
     """
-    print("testing extract_nifti_file_location")
     multi_subject_root = Path(MULTI_SUBJECT_ROOT)
     hcp_sub_nifti_location_list = []
 
     for sub in multi_subject_root.glob('*'):
         if sub.is_dir():
-            hcp_sub_nifti_location_list.append(sub / NIFTI_PATH_FROM_SUBJECT_ROOT)
+            nifti_file_location = sub / NIFTI_PATH_FROM_SUBJECT_ROOT
+            if nifti_file_location.exists() and len(list(nifti_file_location.glob('*nii*'))) > 0:
+                hcp_sub_nifti_location_list.append(nifti_file_location)
 
     # extract the subject name and session name from the hcp_sub_nifti_location
     subject_name_list = []
     session_name_list = []
     for hcp_sub_nifti_location in hcp_sub_nifti_location_list:
         subject_name_list.append(hcp_sub_nifti_location.parts[-3].split('_')[0])
-        session_name_list.append(
-            re.findall(r'\d+', str(hcp_sub_nifti_location.parts[-3].split('_')[0]))[0])
+        session_name_list.append(re.sub(r'^0*', '', re.sub(r'\D', '', hcp_sub_nifti_location.parts[-3].split('_')[1])))
+
+    subject_data = list(zip(subject_name_list, session_name_list, hcp_sub_nifti_location_list))
+    subject_data.sort(key=lambda x: x[0])
 
     print('{:^130}'.format('Running HCP Pipeline on the following subjects'))
-    print_df(pd.DataFrame({'subject_name': subject_name_list,
-                           'session_name': session_name_list,
-                           'nifti_location': hcp_sub_nifti_location_list}))
+    print_df(pd.DataFrame(subject_data, columns=['Subject', 'Session', 'Nifti Location']))
+
+    time.sleep(5)
 
     return hcp_sub_nifti_location_list, subject_name_list, session_name_list
 
@@ -168,7 +224,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
     hcp_subject.eddy_preparation_for_rev_encode_dwi(force)  # loc: eddy.py:145
     hcp_subject.merge_dwis_for_eddy(force)  # loc: eddy.py:188
     hcp_subject.get_slspec(force)  # loc: eddy.py:418
-    print(' ++  ******** about to run eddy_for_rev_encod_dwi **********  ++ ')
+    print(' !!++  ******** running eddy_for_rev_encod_dwi **********  ++!! ')
     hcp_subject.eddy_for_rev_encod_dwi()  # loc: eddy.py:223
     # calculate end time
     t1 = time.time()
@@ -190,13 +246,13 @@ def run_hcp_multi_subject():
     # check that the number of subjects is equal to the number of sessions and nifti locations
     assert len(hcp_sub_nifti_location_list) == len(subject_name_list) == len(session_name_list)
 
-    with Pool() as pool:
-        pool.starmap(run_hcp_subject,
-                     zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
-                         repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
+    # with Pool(processes=PROCESSES, maxtasksperchild=MAX_TASK_PER_CHILD) as pool:
+    #     pool.starmap(run_hcp_subject,
+    #                  zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
+    #                      repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
 
     # close the pool and wait for the work to finish
-    pool.close()
+    # pool.close()
 
     # calculate end time
     t1 = time.time()

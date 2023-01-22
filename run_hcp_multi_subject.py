@@ -13,7 +13,7 @@ CONFIG_LOC = '/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/test_config.ini'
 BIDS_STUDY_ROOT = '/rfanfs/pnl-zorro/projects/ampscz_mri/data/test_bids'
 NIFTI_PATH_FROM_SUBJECT_ROOT = 'unprocessed/Diffusion'
 CUDA_DEVICE_COUNT = len(os.popen('nvidia-smi -L').readlines())
-PROCESSES = CUDA_DEVICE_COUNT
+PROCESSES = os.cpu_count()
 MAX_TASK_PER_CHILD = 1
 OUTPUT_FILE_LOCATION = os.path.join(MULTI_SUBJECT_ROOT, 'output')
 OUTPUT_FILE_NAME = 'run_hcp_multi_subject_' + TIME_DATE + '.out'
@@ -87,7 +87,13 @@ print('MULTI_SUBJECT_ROOT: ', MULTI_SUBJECT_ROOT)
 print('CONFIG_LOC: ', CONFIG_LOC)
 print('BIDS_STUDY_ROOT: ', BIDS_STUDY_ROOT)
 print('CUDA_DEVICE_COUNT: ', CUDA_DEVICE_COUNT)
+print('PROCESSES: ', PROCESSES)
+print('MAX_TASK_PER_CHILD: ', MAX_TASK_PER_CHILD)
 print('REDIRECT_OUTPUT: ', REDIRECT_OUTPUT)
+if REDIRECT_OUTPUT:
+    print('OUTPUT_FILE_LOCATION: ', OUTPUT_FILE_LOCATION)
+    print('OUTPUT_FILE_NAME: ', OUTPUT_FILE_NAME)
+    print('OUTPUT_ERROR_NAME: ', OUTPUT_ERROR_NAME)
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -187,6 +193,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
 
     """
     t0 = time.time()
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(CUDA_DEVICE % CUDA_DEVICE_COUNT)
 
     hcp_subject = HcpSubject(
         hcp_sub_nifti_location,
@@ -209,23 +216,23 @@ def run_hcp_subject(hcp_sub_nifti_location,
     hcp_subject.check_files()  # loc: subject.py:73
     hcp_subject.run_gibbs_unring_auto(force)  # loc: noise.py:39
     hcp_subject.save_b0_from_raw_dwis(force)  # loc: dwi.py:138
-    hcp_subject.topup_preparation_for_rev_encod_dwi(force)
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(CUDA_DEVICE % CUDA_DEVICE_COUNT)
-
-    if not hcp_subject.diff_mask.is_file():
-        hcp_subject.run_otsu_masking(
-            hcp_subject.topup_hifi,
-            hcp_subject.diff_mask,
-            vol_idx=[0, 1],
-            force=force
-        )
-
-    hcp_subject.eddy_preparation_for_rev_encode_dwi(force)  # loc: eddy.py:145
-    hcp_subject.merge_dwis_for_eddy(force)  # loc: eddy.py:188
-    hcp_subject.get_slspec(force)  # loc: eddy.py:418
-    print(' !!++  ******** running eddy_for_rev_encod_dwi **********  ++!! ')
-    hcp_subject.eddy_for_rev_encod_dwi()  # loc: eddy.py:223
+    # hcp_subject.topup_preparation_for_rev_encod_dwi(force)
+    #
+    #
+    #
+    # if not hcp_subject.diff_mask.is_file():
+    #     hcp_subject.run_otsu_masking(
+    #         hcp_subject.topup_hifi,
+    #         hcp_subject.diff_mask,
+    #         vol_idx=[0, 1],
+    #         force=force
+    #     )
+    #
+    # hcp_subject.eddy_preparation_for_rev_encode_dwi(force)  # loc: eddy.py:145
+    # hcp_subject.merge_dwis_for_eddy(force)  # loc: eddy.py:188
+    # hcp_subject.get_slspec(force)  # loc: eddy.py:418
+    # print(' !!++  ******** running eddy_for_rev_encod_dwi **********  ++!! ')
+    # hcp_subject.eddy_for_rev_encod_dwi()  # loc: eddy.py:223
     # calculate end time
     t1 = time.time()
     print('time to run subject: ', (t1 - t0), ' seconds')
@@ -246,13 +253,13 @@ def run_hcp_multi_subject():
     # check that the number of subjects is equal to the number of sessions and nifti locations
     assert len(hcp_sub_nifti_location_list) == len(subject_name_list) == len(session_name_list)
 
-    # with Pool(processes=PROCESSES, maxtasksperchild=MAX_TASK_PER_CHILD) as pool:
-    #     pool.starmap(run_hcp_subject,
-    #                  zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
-    #                      repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
+    with Pool(processes=PROCESSES, maxtasksperchild=MAX_TASK_PER_CHILD) as pool:
+        pool.starmap(run_hcp_subject,
+                     zip(hcp_sub_nifti_location_list, subject_name_list, session_name_list, repeat(BIDS_STUDY_ROOT),
+                         repeat(CONFIG_LOC), range(CUDA_DEVICE, CUDA_DEVICE + len(hcp_sub_nifti_location_list))))
 
     # close the pool and wait for the work to finish
-    # pool.close()
+    pool.close()
 
     # calculate end time
     t1 = time.time()

@@ -19,7 +19,6 @@ OUTPUT_FILE_LOCATION = os.path.join(MULTI_SUBJECT_ROOT, 'output')
 OUTPUT_FILE_NAME = 'run_hcp_multi_subject_' + TIME_DATE + '.out'
 OUTPUT_ERROR_NAME = 'run_hcp_multi_subject_' + TIME_DATE + '.err'
 
-
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # +++++++++++ OVERWRITE THE DEFAULT VARIABLES IF PASSED AS ARGUMENTS +++++++++++
 parser = argparse.ArgumentParser()
@@ -79,7 +78,6 @@ OUTPUT_FILE_NAME = args.output_file_name
 OUTPUT_ERROR_NAME = args.output_error_name
 REDIRECT_OUTPUT = args.redirect_output
 
-
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # +++++++++++++++++++++++   print the variables    +++++++++++++++++++++++++++++
 print('PIPELINE_ROOT: ', PIPELINE_ROOT)
@@ -95,7 +93,6 @@ if REDIRECT_OUTPUT:
     print('OUTPUT_FILE_NAME: ', OUTPUT_FILE_NAME)
     print('OUTPUT_ERROR_NAME: ', OUTPUT_ERROR_NAME)
 
-
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # +++++++++++++++++++ Redirecting the output if set to +++++++++++++++++++++++++
 if REDIRECT_OUTPUT:
@@ -104,7 +101,6 @@ if REDIRECT_OUTPUT:
         os.makedirs(OUTPUT_FILE_LOCATION)
     sys.stdout = open(os.path.join(OUTPUT_FILE_LOCATION, OUTPUT_FILE_NAME), 'w')
     sys.stderr = open(os.path.join(OUTPUT_FILE_LOCATION, OUTPUT_ERROR_NAME), 'w')
-
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # +++++++++++ Removing any old pipeline environment variables ++++++++++++++++++
@@ -214,25 +210,24 @@ def run_hcp_subject(hcp_sub_nifti_location,
     hcp_subject.set_dti_scalar_attributes()  # loc: subject.py:152
     hcp_subject.set_summary_attributes()  # loc: subject.py:164
     hcp_subject.check_files()  # loc: subject.py:73
-    hcp_subject.run_gibbs_unring_auto(force)  # loc: noise.py:39
+    hcp_subject.run_gibbs_unring_auto(force, dipy=True)  # loc: noise.py:39q
     hcp_subject.save_b0_from_raw_dwis(force)  # loc: dwi.py:138
-    # hcp_subject.topup_preparation_for_rev_encod_dwi(force)
-    #
-    #
-    #
-    # if not hcp_subject.diff_mask.is_file():
-    #     hcp_subject.run_otsu_masking(
-    #         hcp_subject.topup_hifi,
-    #         hcp_subject.diff_mask,
-    #         vol_idx=[0, 1],
-    #         force=force
-    #     )
-    #
-    # hcp_subject.eddy_preparation_for_rev_encode_dwi(force)  # loc: eddy.py:145
-    # hcp_subject.merge_dwis_for_eddy(force)  # loc: eddy.py:188
-    # hcp_subject.get_slspec(force)  # loc: eddy.py:418
-    # print(' !!++  ******** running eddy_for_rev_encod_dwi **********  ++!! ')
-    # hcp_subject.eddy_for_rev_encod_dwi()  # loc: eddy.py:223
+    hcp_subject.topup_preparation_for_rev_encod_dwi(force)
+
+    if not hcp_subject.diff_mask.is_file():
+        hcp_subject.run_otsu_masking(
+            hcp_subject.topup_hifi,
+            hcp_subject.diff_mask,
+            vol_idx=[0, 1],
+            force=force
+        )
+
+    hcp_subject.eddy_preparation_for_rev_encode_dwi(force)  # loc: eddy.py:145
+    hcp_subject.merge_dwis_for_eddy(force)  # loc: eddy.py:188
+    hcp_subject.get_slspec(force)  # loc: eddy.py:418
+    print(' !!++  ******** running eddy_for_rev_encod_dwi **********  ++!! ')
+    hcp_subject.eddy_for_rev_encod_dwi()  # loc: eddy.py:223
+
     # calculate end time
     t1 = time.time()
     print('time to run subject: ', (t1 - t0), ' seconds')

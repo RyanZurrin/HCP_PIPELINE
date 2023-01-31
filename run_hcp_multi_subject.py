@@ -8,7 +8,7 @@ from multiprocessing import Pool
 # +++++++++++++++++++++   DEFAULT PATH/SCRIPT VARIABLES   ++++++++++++++++++++++
 TIME_DATE = time.strftime("%Y%m%d_%H%M%S")
 PIPELINE_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/objPipe'
-MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/multi'
+MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/single_test2'
 CONFIG_LOC = '/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/test_config.ini'
 BIDS_STUDY_ROOT = '/rfanfs/pnl-zorro/projects/ampscz_mri/data/test_bids'
 NIFTI_PATH_FROM_SUBJECT_ROOT = 'unprocessed/Diffusion'

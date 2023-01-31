@@ -15,13 +15,14 @@ from objPipe.utils.utils import re, pd, Path, print_df, shutil
 def test_run_hcp_subject():
     t0 = time.time()
     print(objPipe.__file__)
-    hcp_sub_nifti_location = '/rfanfs/pnl-zorro/projects/ampscz_mri/data2/HCA6002236_V1_MR/unprocessed/Diffusion'
+    hcp_sub_nifti_location = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/single_test/HCA6002236_V1_MR/unprocessed/Diffusion'
     hcpSubject = HcpSubject(
         hcp_sub_nifti_location,
-        session_name='6002236',
+        session_name='1',
         subject_name='HCA6002236',
         bids_study_root='/rfanfs/pnl-zorro/projects/ampscz_mri/data2/test_bids',
         config_loc='/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/test_config.ini')
+
     hcpSubject.set_bsub_attributes()                        # loc: subject.py:64
 
     # ryan
@@ -36,7 +37,7 @@ def test_run_hcp_subject():
     hcpSubject.set_dti_scalar_attributes()                  # loc: subject.py:152
     hcpSubject.set_summary_attributes()                     # loc: subject.py:164
     hcpSubject.check_files()                                # loc: subject.py:73
-    hcpSubject.run_gibbs_unring_auto(force)                 # loc: noise.py:39
+    hcpSubject.run_gibbs_unring_auto(force, dipy=True)                 # loc: noise.py:39
     hcpSubject.save_b0_from_raw_dwis(force)                 # loc: dwi.py:138
     hcpSubject.topup_preparation_for_rev_encod_dwi(force)   # loc: topup.py:302
     if not hcpSubject.diff_mask.is_file():                  # loc: subject.py:130
@@ -53,7 +54,7 @@ def test_run_hcp_subject():
     hcpSubject.eddy_for_rev_encod_dwi()                     # loc: eddy.py:223
 
     # TODO: need to re-create the final mask
-    # hcpSubject.check_files()                                # loc: subject.py:73
+    hcpSubject.check_files()                                # loc: subject.py:73
 
     # calculate end time Vb
     t1 = time.time()

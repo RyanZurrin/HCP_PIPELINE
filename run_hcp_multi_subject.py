@@ -230,7 +230,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
 
     # calculate end time
     t1 = time.time()
-    print('time to run subject: ', (t1 - t0), ' seconds')
+    print('time to run subjeect: ', (t1 - t0), ' seconds')
 
 
 def run_hcp_multi_subject():

@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import resource
 import argparse
 from itertools import repeat
 from multiprocessing import Pool
@@ -12,7 +13,8 @@ MULTI_SUBJECT_ROOT = r'/rfanfs/pnl-zorro/projects/ampscz_mri/data/single_test2'
 CONFIG_LOC = '/rfanfs/pnl-zorro/projects/ampscz_mri/new_version/test_config.ini'
 BIDS_STUDY_ROOT = '/rfanfs/pnl-zorro/projects/ampscz_mri/data/test_bids'
 NIFTI_PATH_FROM_SUBJECT_ROOT = 'unprocessed/Diffusion'
-CUDA_DEVICE_COUNT = len(os.popen('nvidia-smi -L').readlines())
+CUDA_COUNT = len(os.popen('nvidia-smi -L').readlines())
+CUDA_DEVICE = 0
 PROCESSES = os.cpu_count()
 MAX_TASK_PER_CHILD = 1
 OUTPUT_FILE_LOCATION = os.path.join(MULTI_SUBJECT_ROOT, 'output')
@@ -37,11 +39,16 @@ parser.add_argument('-br', '--bids_study_root',
 parser.add_argument('-nr', '--nifti_path_from_subject_root',
                     help='The path from the subject root to the nifti file',
                     default=NIFTI_PATH_FROM_SUBJECT_ROOT)
-parser.add_argument('-cd', '--cuda_devices',
+parser.add_argument('-cc', '--cuda_devices',
                     help='The number of cuda devices. '
                          'Default is the number of cuda devices on the system.'
                          ' Only set if you want to not use all GPUs on the system',
-                    default=CUDA_DEVICE_COUNT)
+                    default=CUDA_COUNT)
+parser.add_argument('-cd', '--use_cuda_device',
+                    help='The cuda device to use. '
+                         'Default is 0. '
+                         'Only set if you want to cycle through the GPUs on the system',
+                    default=CUDA_DEVICE)
 parser.add_argument('-p', '--processes',
                     help='The number of processes to run in parallel. '
                          'Default is the number of cuda devices on the system. '
@@ -70,7 +77,8 @@ PIPELINE_ROOT = args.pipeline_root
 MULTI_SUBJECT_ROOT = args.multi_subject_root
 CONFIG_LOC = args.config_location
 BIDS_STUDY_ROOT = args.bids_study_root
-CUDA_DEVICE_COUNT = int(args.cuda_devices)
+CUDA_COUNT = int(args.cuda_devices)
+CUDA_DEVICE = int(args.use_cuda_device)
 PROCESSES = int(args.processes)
 MAX_TASK_PER_CHILD = int(args.max_tasks_per_child)
 OUTPUT_FILE_LOCATION = args.output_file_location
@@ -84,7 +92,8 @@ print('PIPELINE_ROOT: ', PIPELINE_ROOT)
 print('MULTI_SUBJECT_ROOT: ', MULTI_SUBJECT_ROOT)
 print('CONFIG_LOC: ', CONFIG_LOC)
 print('BIDS_STUDY_ROOT: ', BIDS_STUDY_ROOT)
-print('CUDA_DEVICE_COUNT: ', CUDA_DEVICE_COUNT)
+print('CUDA_DEVICE_COUNT: ', CUDA_COUNT)
+print('CUDA_DEVICE: ', CUDA_DEVICE)
 print('PROCESSES: ', PROCESSES)
 print('MAX_TASK_PER_CHILD: ', MAX_TASK_PER_CHILD)
 print('REDIRECT_OUTPUT: ', REDIRECT_OUTPUT)
@@ -165,7 +174,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
                     session_name,
                     bids_study_root,
                     config_location,
-                    CUDA_DEVICE):
+                    cuda_device):
     """ run the hcp_subject for each subject in parallel based on cpu cores
 
     Parameters
@@ -180,7 +189,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
         the location of the bids study root
     config_location : str
         the location of the config file
-    CUDA_DEVICE : int
+    cuda_device : int
         the cuda device to use
 
     Returns
@@ -189,7 +198,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
 
     """
     t0 = time.time()
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(CUDA_DEVICE % CUDA_DEVICE_COUNT)
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(CUDA_DEVICE % CUDA_COUNT)
 
     hcp_subject = HcpSubject(
         hcp_sub_nifti_location,
@@ -210,7 +219,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
     hcp_subject.set_dti_scalar_attributes()  # loc: subject.py:152
     hcp_subject.set_summary_attributes()  # loc: subject.py:164
     hcp_subject.check_files()  # loc: subject.py:73
-    hcp_subject.run_gibbs_unring_auto(force, dipy=True)  # loc: noise.py:39q
+    hcp_subject.run_gibbs_unring_auto(force)  # loc: noise.py:39q
     hcp_subject.save_b0_from_raw_dwis(force)  # loc: dwi.py:138
     hcp_subject.topup_preparation_for_rev_encod_dwi(force)
 
@@ -236,9 +245,10 @@ def run_hcp_subject(hcp_sub_nifti_location,
 def run_hcp_multi_subject():
     """  run the multiple hcp subjects in parallel.
     """
-    t0 = time.time()
+
+    t0 = time.perf_counter()
+
     print("testing run_hcp_multi_subject")
-    CUDA_DEVICE = 0
 
     print(objPipe.__file__)
 
@@ -257,8 +267,9 @@ def run_hcp_multi_subject():
     pool.close()
 
     # calculate end time
-    t1 = time.time()
-    print('time to run all subjects: ', (t1 - t0), ' seconds')
+    time_elapsed = (time.perf_counter() - t0)
+    memMb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0 / 1024.0
+    print("%5.1f secs %5.1f MByte" % (time_elapsed, memMb))
 
 
 if __name__ == '__main__':

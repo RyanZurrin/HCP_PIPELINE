@@ -207,39 +207,7 @@ def run_hcp_subject(hcp_sub_nifti_location,
         bids_study_root=bids_study_root,
         config_loc=config_location)
 
-    hcp_subject.set_bsub_attributes()  # loc: subject.py:64
-    hcp_subject.check_bids_dirs()  # loc: bids.py:240
-    force = False
-    hcp_subject.write_series_desc_csv(force)  # loc: nifti.py:127
-    diff_file_df = hcp_subject.get_diff_file_df()  # loc: nifti.py:172
-    print_df(diff_file_df)
-    hcp_subject.register_diff_raw_file(diff_file_df)  # loc: nifti.py:250
-    hcp_subject.set_dwi_unring_attributes()  # loc: subject.py:102
-    hcp_subject.set_dwi_eddy_attributes()  # loc: subject.py:128
-    hcp_subject.set_dti_scalar_attributes()  # loc: subject.py:152
-    hcp_subject.set_summary_attributes()  # loc: subject.py:164
-    hcp_subject.check_files()  # loc: subject.py:73
-    hcp_subject.run_gibbs_unring_auto(force)  # loc: noise.py:39q
-    hcp_subject.save_b0_from_raw_dwis(force)  # loc: dwi.py:138
-    hcp_subject.topup_preparation_for_rev_encod_dwi(force)
-
-    if not hcp_subject.diff_mask.is_file():
-        hcp_subject.run_otsu_masking(
-            hcp_subject.topup_hifi,
-            hcp_subject.diff_mask,
-            vol_idx=[0, 1],
-            force=force
-        )
-
-    hcp_subject.eddy_preparation_for_rev_encode_dwi(force)  # loc: eddy.py:145
-    hcp_subject.merge_dwis_for_eddy(force)  # loc: eddy.py:188
-    hcp_subject.get_slspec(force)  # loc: eddy.py:418
-    print(' !!++  ******** running eddy_for_rev_encod_dwi **********  ++!! ')
-    hcp_subject.eddy_for_rev_encod_dwi()  # loc: eddy.py:223
-
-    # calculate end time
-    t1 = time.time()
-    print('time to run subjeect: ', (t1 - t0), ' seconds')
+    hcp_subject.run_pipeline()
 
 
 def run_hcp_multi_subject():
